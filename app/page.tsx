@@ -42,7 +42,7 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-white text-black">
       <header className="p-4 border-b bg-blue-900 text-white font-bold text-center text-xl">
-        동승종합철물 AI 베테랑 사장님
+        동승종합철물 공구마스터 AI
       </header>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m, i) => (
