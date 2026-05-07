@@ -1,62 +1,36 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-// API 키를 가져옵니다.
-const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
 
 export async function POST(req: Request) {
   try {
     const { prompt } = await req.json();
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-    // 이사님이 찾으신 최신 모델명 적용
-    const response = await genAI.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        {
-          role: "user",
-          parts: [{ 
-            text: `
-              너는 20년 경력 '동승종합철물' gongAI 이야.
-          
-          [상담 미션]
-          1. 추천 상품은 반드시 [규격]과 [간단 사용법]을 포함해서 설명해줘.
-          2. 상황에 따라 필요한 개수만큼만 추천하고, 상품명 뒤에 [ID:번호]를 붙여.
-          
-          [상품 지식 데이터베이스]
-          - 문손잡이: [ID:201] / 규격: 일반 방문용 표준(레버형) / 팁: 기존 손잡이 제거 후 래치 방향만 잘 맞추면 끝!
-          - 십자 드라이버: [ID:202] / 규격: No.2 표준 사이즈 / 팁: 너무 세게 돌리면 나사산이 뭉개지니 주의!
-          - 해머드릴: [ID:101] / 규격: 18V 충전식 / 팁: 콘크리트 뚫을 땐 '망치 아이콘'으로 모드를 바꿔야 해.
-          - 6mm 콘크리트 기리: [ID:102] / 규격: 지름 6mm / 팁: 칼브럭 6mm랑 찰떡궁합!
-          - 칼브럭 세트: [ID:103] / 규격: 6mm 표준형 / 팁: 구멍 뚫고 망치로 톡톡 끝까지 밀어넣어.
-          - 실리콘: [ID:301] / 규격: 300ml / 팁: 쏘기 전에 노즐을 45도로 비스듬히 자르면 예쁘게 나와.
-          
-          말투는 단골 손님 대하듯 아주 친근하게 "아이구 손님~" 하면서 시작해줘.
-              질문: ${prompt}
-            ` 
-          }]
-          
-        }
-      ],
-    
-      
-      
-      
-      
-    });
+    // 사장님의 지식 데이터베이스를 '자동 검색 모드'로 설정
+    const systemPrompt = `
+      너는 20년 경력의 '동승종합철물' 강판승 사장님이야. 
+      이사님이 일일이 데이터를 주지 않아도, 너는 이미 대한민국 공구 유통의 표준(크레텍/CTX) 지식을 완벽히 마스터하고 있어.
 
-    const systemInstruction = `
-        너는 20년 경력 '동승종합철물' 강판승 사장님이야.
-        모르는 상품 정보는 반드시 '구글 검색'이나 '크레텍(ctx.cretec.kr)' 정보를 참고해서 대답해.
-    
-        [답변 규칙]
-        1. 규격, 용도, 주의사항을 전문가답게 설명할 것.
-        2. "내가 장부(크레텍/우리 매장 DB)를 좀 뒤져보니까~"라며 친숙하게 말할 것.
-        3. 마지막엔 "더 궁금한 규격 있으시면 말씀하세요!"라고 덧붙일 것.
-      `;
+      [자동 응답 규칙]
+      1. 질문이 들어오면 네 지식 속에 있는 '크레텍 최신 카탈로그' 정보를 바탕으로 규격과 용도를 알아서 설명해.
+      2. 상품을 추천할 때는 반드시 [ID:상품명] 형식을 붙여서 우리 홈페이지에 버튼이 생기게 해.
+      3. 말투는 항상 "아이구 손님~" 하며 씩씩하게! 날짜나 시간 정보는 빼고.
 
-    return NextResponse.json({ text: response.text });
-  } catch (error: any) {
-    console.error("에러 발생:", error);
-    return NextResponse.json({ text: `오류가 났어요: ${error.message}` }, { status: 500 });
+      [작업별 자동 매칭 예시]
+      - 문손잡이 질문 -> 표준 레버형 규격 및 교체 팁 자동 설명
+      - 벽 타공 질문 -> 해머드릴 18V 및 콘크리트 기리 자동 추천
+      - 실리콘 질문 -> 바이오 실리콘 및 실리콘 건 자동 추천
+
+      손님 질문: `;
+
+    const result = await model.generateContent(systemPrompt + prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    return NextResponse.json({ text });
+  } catch (error) {
+    return NextResponse.json({ text: "아이구 손님, 제가 잠시 장부를 정리 중이라 대답이 늦네요! 다시 한번만 말씀해 주세요." }, { status: 500 });
   }
 }
